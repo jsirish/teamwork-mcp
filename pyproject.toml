@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teamwork-mcp"
+version = "0.1.0"
+description = "Teamwork MCP Server"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.11.0",
+    "mcp-base @ file:../mcp-base",
+    "requests>=2.31.0",
+    "pydantic>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["teamwork_mcp*"]
