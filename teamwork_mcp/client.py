@@ -4,14 +4,15 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-import requests
+from mcp_base import BaseAPIClient
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TeamworkClient:
+class TeamworkClient(BaseAPIClient):
     """Client for Teamwork.com API v3.
     
+    Extends BaseAPIClient to inherit common HTTP request handling.
     This client expects to receive an OAuth access token and uses it
     to make authenticated requests to the Teamwork API.
     """
@@ -23,48 +24,9 @@ class TeamworkClient:
             access_token: OAuth 2.0 access token
             installation_domain: Teamwork installation domain (e.g., "dynamic8.teamwork.com")
         """
-        self.access_token = access_token
-        self.base_url = f"https://{installation_domain}/projects/api/v3"
-        
-    def _request(
-        self,
-        method: str,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make authenticated request to Teamwork API."""
-        url = f"{self.base_url}/{path.lstrip('/')}"
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json",
-        }
-        
-        try:
-            response = requests.request(
-                method=method,
-                url=url,
-                headers=headers,
-                params=params,
-                json=json_data,
-                timeout=30,
-            )
-            response.raise_for_status()
-            
-            # Teamwork sometimes returns empty responses for successful operations
-            if response.status_code == 204 or not response.content:
-                return {"success": True}
-            
-            return response.json()
-            
-        except requests.exceptions.HTTPError as e:
-            LOGGER.error(f"Teamwork API error {e.response.status_code}: {e.response.text}")
-            raise RuntimeError(
-                f"Teamwork API error {e.response.status_code}: {e.response.text}"
-            )
-        except requests.exceptions.RequestException as e:
-            LOGGER.error(f"Teamwork request failed: {e}")
-            raise RuntimeError(f"Teamwork request failed: {e}")
+        # TeamworkClient uses dynamic base_url based on installation domain
+        base_url = f"https://{installation_domain}/projects/api/v3"
+        super().__init__(access_token=access_token, base_url=base_url)
     
     # ===== Project Management =====
     

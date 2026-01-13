@@ -12,7 +12,12 @@ from typing import Optional
 from pydantic import Field
 from fastmcp import FastMCP
 
-from mcp_base import create_base_app, BaseMCPSettings, run_server
+from mcp_base import (
+    create_base_app,
+    BaseMCPSettings,
+    run_server,
+    extract_token_from_headers,
+)
 
 from .client import TeamworkClient
 
@@ -33,30 +38,11 @@ class TeamworkSettings(BaseMCPSettings):
     port: int = Field(default=3005)
 
 
-def extract_token_from_headers(headers: dict) -> str:
-    """Extract bearer token from Authorization header.
-    
-    Args:
-        headers: Request headers dictionary
-        
-    Returns:
-        Bearer token string
-        
-    Raises:
-        ValueError: If Authorization header is missing or invalid
-    """
-    auth_header = headers.get("authorization", "")
-    if not auth_header:
-        raise ValueError("Missing Authorization header. This server requires OAuth authentication via the gateway.")
-    
-    if not auth_header.lower().startswith("bearer "):
-        raise ValueError("Invalid Authorization header format. Expected 'Bearer <token>'")
-    
-    return auth_header[7:]  # Remove 'Bearer ' prefix
-
-
 def get_teamwork_client(headers: dict) -> TeamworkClient:
     """Create an authenticated Teamwork client from request headers.
+    
+    Uses mcp_base.extract_token_from_headers() to extract the bearer token
+    from the _headers dict injected by the gateway.
     
     Args:
         headers: Request headers dict containing Authorization and optionally X-Teamwork-Domain
@@ -64,7 +50,11 @@ def get_teamwork_client(headers: dict) -> TeamworkClient:
     Returns:
         Authenticated TeamworkClient instance
     """
+    headers = headers or {}
     access_token = extract_token_from_headers(headers)
+    if not access_token:
+        raise ValueError("Missing Authorization header. This server requires OAuth authentication via the gateway.")
+    
     domain = headers.get("x-teamwork-domain") or DEFAULT_DOMAIN
     
     if not domain:
