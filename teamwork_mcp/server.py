@@ -269,7 +269,62 @@ def create_app():
         """
         client = get_teamwork_client(_headers or {})
         return client.complete_task(task_id)
+        # ========================================
+    # Planning / View Tools
+    # ========================================
     
+    @mcp.tool()
+    def teamwork_get_my_active_tasks(
+        days_ahead: int = 7,
+        _headers: dict = None,
+    ) -> list:
+        """Planning-optimized view of active tasks due soon.
+        
+        Returns a concise list of active tasks with due dates within
+        the next N days, avoiding verbose task payloads and reducing
+        agent context usage.
+        
+        Args:
+            days_ahead: Number of days ahead to look for due tasks (default: 7)
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            List of simplified task objects
+        """
+        client = get_teamwork_client(_headers or {})
+        
+        # Fetch first page of tasks (intentionally limited for planning use)
+        response = client.list_tasks(page=1, page_size=100)
+        tasks = response.get("tasks", [])
+        
+        now = datetime.utcnow()
+        cutoff = now + timedelta(days=days_ahead)
+        
+        results = []
+        
+        for task in tasks:
+            due_date = task.get("dueDate")
+            completed = task.get("completed")
+            
+            if completed or not due_date:
+                continue
+            
+            try:
+                due_dt = datetime.fromisoformat(due_date.replace("Z", ""))
+            except Exception:
+                continue
+            
+            if due_dt <= cutoff:
+                results.append({
+                    "task_id": task.get("id"),
+                    "title": task.get("name"),
+                    "due_date": due_date,
+                    "project_id": task.get("projectId"),
+                    "status": "completed" if completed else "active",
+                })
+        
+        return results
+
     
     # ========================================
     # Time Tracking Tools
