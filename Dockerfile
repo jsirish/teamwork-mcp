@@ -1,7 +1,7 @@
 # Teamwork MCP Server
 # Extends mcp-base for Teamwork.com integration
 
-FROM mcp-base:2.2.0
+FROM ghcr.io/dynamic/mcp-base:latest
 
 LABEL org.opencontainers.image.source="https://github.com/dynamic/teamwork-mcp"
 LABEL org.opencontainers.image.description="Teamwork MCP Server - Project management integration"
