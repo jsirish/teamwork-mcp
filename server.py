@@ -289,7 +289,57 @@ def _register_teamwork_tools(mcp, settings):
         client = _get_client(ctx)
         return client.get_me()
     
-    LOGGER.info("✅ Teamwork tools registered (10 tools)")
+    # ===== Planning Tools =====
+    
+    @mcp.tool()
+    def teamwork_get_my_tasks(
+        ctx,
+        date_filter: str = Field(
+            default="within7",
+            description="Date filter: overdue, today, thisweek, within7, within14, within30"
+        ),
+        include_completed: bool = Field(
+            default=False,
+            description="Include completed tasks"
+        ),
+    ) -> dict:
+        """Get my tasks with due date filtering. Optimized for weekly planning.
+        
+        Returns tasks assigned to the current user, filtered by due date.
+        Much faster than listing all tasks and filtering manually.
+        """
+        client = _get_client(ctx)
+        # Get current user ID
+        me = client.get_me()
+        person = me.get("person")
+        if not isinstance(person, dict):
+            raise ValueError("Failed to retrieve current user: 'person' field is missing or invalid in response.")
+        user_id = person.get("id")
+        if user_id is None:
+            raise ValueError("Failed to retrieve current user: 'id' field is missing from 'person' in response.")
+        user_id = str(user_id)
+        
+        return client.get_my_tasks(
+            user_id=user_id,
+            date_filter=date_filter,
+            include_completed=include_completed,
+        )
+    
+    @mcp.tool()
+    def teamwork_get_project_summary(
+        ctx,
+        project_id: str = Field(..., description="Project ID"),
+    ) -> dict:
+        """Get a concise project health summary.
+        
+        Returns project info with aggregated task statistics (total, overdue,
+        due this week) and an overall health status. Much more concise than
+        raw project data for status reporting and planning.
+        """
+        client = _get_client(ctx)
+        return client.get_project_summary(project_id)
+    
+    LOGGER.info("✅ Teamwork tools registered (14 tools)")
 
 
 if __name__ == "__main__":

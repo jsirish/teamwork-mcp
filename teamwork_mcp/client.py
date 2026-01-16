@@ -190,3 +190,104 @@ class TeamworkClient(BaseAPIClient):
     def get_me(self) -> Dict[str, Any]:
         """Get current authenticated user information."""
         return self._request("GET", "/me.json")
+    
+    # ===== Planning Tools =====
+    
+    def get_my_tasks(
+        self,
+        user_id: str,
+        date_filter: str = "within7",
+        include_completed: bool = False,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """Get tasks assigned to a specific user with due date filtering.
+        
+        Args:
+            user_id: User ID to filter tasks for
+            date_filter: Date filter - overdue, today, thisweek, within7, within14, within30
+            include_completed: Whether to include completed tasks
+            page_size: Number of results (default 100)
+        
+        Returns:
+            Dictionary containing filtered tasks optimized for planning
+        """
+        params = {
+            "responsiblePartyIds": user_id,
+            "filter": date_filter,
+            "pageSize": page_size,
+        }
+        # Teamwork API requires explicit includeCompletedTasks parameter
+        params["includeCompletedTasks"] = "true" if include_completed else "false"
+        
+        return self._request("GET", "/tasks.json", params=params)
+    
+    def get_project_summary(self, project_id: str) -> Dict[str, Any]:
+        """Get a concise project health summary.
+        
+        Fetches project details and task statistics for planning and status reporting.
+        
+        Note: This method makes 4 API calls (project details + 3 task count queries).
+        For projects with very high task counts, consider caching or rate limiting.
+        
+        Args:
+            project_id: Project ID to summarize
+        
+        Returns:
+            Dictionary containing project info, task statistics, and health status
+        """
+        # Get project details
+        project = self._request("GET", f"/projects/{project_id}.json")
+        
+        # Get task counts - all tasks for this project
+        # Note: meta.page.count is the total count across all pages, not page count
+        # per Teamwork API v3 docs: https://apidocs.teamwork.com/guides/teamwork/how-does-paging-work
+        all_tasks = self._request(
+            "GET", 
+            "/tasks.json", 
+            params={"projectId": project_id, "pageSize": 1}
+        )
+        total_count = all_tasks.get("meta", {}).get("page", {}).get("count", 0)
+        
+        # Get overdue tasks count
+        overdue_tasks = self._request(
+            "GET",
+            "/tasks.json",
+            params={"projectId": project_id, "filter": "overdue", "pageSize": 1}
+        )
+        overdue_count = overdue_tasks.get("meta", {}).get("page", {}).get("count", 0)
+        
+        # Get tasks due this week
+        thisweek_tasks = self._request(
+            "GET",
+            "/tasks.json",
+            params={"projectId": project_id, "filter": "thisweek", "pageSize": 1}
+        )
+        thisweek_count = thisweek_tasks.get("meta", {}).get("page", {}).get("count", 0)
+        
+        # Health indicator: at-risk if >=10% tasks are overdue, or 3+ overdue tasks
+        if total_count == 0:
+            health = "on-track"  # No tasks = healthy
+        else:
+            overdue_pct = (overdue_count / total_count) * 100
+            health = "at-risk" if overdue_pct >= 10 or overdue_count >= 3 else "on-track"
+        
+        # Build summary
+        project_data = project.get("project", {})
+        description = project_data.get("description", "") or ""
+        if len(description) > 200:
+            description = description[:197] + "..."  # Truncate with ellipsis
+        return {
+            "project": {
+                "id": project_data.get("id"),
+                "name": project_data.get("name"),
+                "status": project_data.get("status"),
+                "description": description,
+            },
+            "taskStats": {
+                "total": total_count,
+                "overdue": overdue_count,
+                "dueThisWeek": thisweek_count,
+            },
+            "health": health,
+        }
+
