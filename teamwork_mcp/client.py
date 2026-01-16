@@ -10,11 +10,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TeamworkClient(BaseAPIClient):
-    """Client for Teamwork.com API v3.
+    """Client for Teamwork.com API v3 with v1 fallback.
     
     Extends BaseAPIClient to inherit common HTTP request handling.
     This client expects to receive an OAuth access token and uses it
     to make authenticated requests to the Teamwork API.
+    
+    Note: Some operations (task list CRUD, comments) use v1 API endpoints
+    as they aren't fully available in v3.
     """
     
     def __init__(self, access_token: str, installation_domain: str):
@@ -24,9 +27,72 @@ class TeamworkClient(BaseAPIClient):
             access_token: OAuth 2.0 access token
             installation_domain: Teamwork installation domain (e.g., "dynamic8.teamwork.com")
         """
+        # Store installation domain for v1 API requests
+        self.installation_domain = installation_domain
         # TeamworkClient uses dynamic base_url based on installation domain
         base_url = f"https://{installation_domain}/projects/api/v3"
         super().__init__(access_token=access_token, base_url=base_url)
+    
+    def _request_v1(
+        self,
+        method: str,
+        path: str,
+        params: dict = None,
+        json_data: dict = None,
+        timeout: int = None,
+    ) -> Dict[str, Any]:
+        """Make request to v1 API (some operations aren't available in v3).
+        
+        Uses direct URL construction to bypass v3 base_url.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, PATCH, DELETE)
+            path: URL path (e.g., "/projects/123/tasklists.json")
+            params: Query parameters
+            json_data: JSON body data
+            timeout: Request timeout
+            
+        Returns:
+            Response JSON as dict
+        """
+        import requests
+        
+        url = f"https://{self.installation_domain}{path}"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+        
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                json=json_data,
+                timeout=timeout or self.DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
+            
+            # Handle empty responses (204 No Content)
+            if response.status_code == 204 or not response.content:
+                return {"success": True}
+            
+            return response.json()
+            
+        except requests.exceptions.HTTPError as e:
+            self._logger.error(
+                "%s v1 API error %d: %s",
+                self.__class__.__name__,
+                e.response.status_code,
+                e.response.text,
+            )
+            raise RuntimeError(
+                f"{self.__class__.__name__} v1 API error {e.response.status_code}: {e.response.text}"
+            )
+        except requests.exceptions.RequestException as e:
+            self._logger.error("%s v1 request failed: %s", self.__class__.__name__, e)
+            raise RuntimeError(f"{self.__class__.__name__} v1 request failed: {e}")
     
     # ===== Project Management =====
     
@@ -290,4 +356,305 @@ class TeamworkClient(BaseAPIClient):
             },
             "health": health,
         }
+
+    # ===== Task Lists =====
+    
+    def list_task_lists(
+        self,
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List task lists for a project."""
+        return self._request(
+            "GET",
+            f"/projects/{project_id}/tasklists.json",
+            params={"page": page, "pageSize": page_size}
+        )
+    
+    def create_task_list(
+        self,
+        project_id: str,
+        name: str,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new task list in a project.
+        
+        Note: Uses v1 API endpoint with 'todo-list' payload key per Teamwork SDK.
+        v3 API doesn't fully support task list creation.
+        """
+        payload = {"todo-list": {"name": name}}
+        if description:
+            payload["todo-list"]["description"] = description
+        return self._request_v1(
+            "POST",
+            f"/projects/{project_id}/tasklists.json",
+            json_data=payload
+        )
+    
+    # ===== Comments =====
+    
+    def list_task_comments(
+        self,
+        task_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List comments on a task."""
+        return self._request(
+            "GET",
+            f"/tasks/{task_id}/comments.json",
+            params={"page": page, "pageSize": page_size}
+        )
+    
+    def add_task_comment(
+        self,
+        task_id: str,
+        body: str,
+    ) -> Dict[str, Any]:
+        """Add a comment to a task."""
+        payload = {"comment": {"body": body}}
+        return self._request(
+            "POST",
+            f"/tasks/{task_id}/comments.json",
+            json_data=payload
+        )
+    
+    # ===== Tags =====
+    
+    def list_tags(
+        self,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """List all available tags."""
+        return self._request(
+            "GET",
+            "/tags.json",
+            params={"page": page, "pageSize": page_size}
+        )
+    
+    def add_tag_to_task(
+        self,
+        task_id: str,
+        tag_ids: List[str],
+    ) -> Dict[str, Any]:
+        """Add tags to a task."""
+        payload = {"tagIds": tag_ids}
+        return self._request(
+            "PUT",
+            f"/tasks/{task_id}/tags.json",
+            json_data=payload
+        )
+    
+    # ===== Milestones =====
+    
+    def list_milestones(
+        self,
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List milestones for a project."""
+        return self._request(
+            "GET",
+            f"/projects/{project_id}/milestones.json",
+            params={"page": page, "pageSize": page_size}
+        )
+    
+    def get_milestone(self, milestone_id: str) -> Dict[str, Any]:
+        """Get milestone details."""
+        return self._request("GET", f"/milestones/{milestone_id}.json")
+    
+    # ===== Subtasks =====
+    
+    def list_subtasks(
+        self,
+        task_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List subtasks of a task."""
+        return self._request(
+            "GET",
+            f"/tasks/{task_id}/subtasks.json",
+            params={"page": page, "pageSize": page_size}
+        )
+    
+    def create_subtask(
+        self,
+        task_id: str,
+        name: str,
+        description: Optional[str] = None,
+        assignee_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a subtask under a parent task."""
+        payload = {"task": {"name": name, "parentTaskId": task_id}}
+        if description:
+            payload["task"]["description"] = description
+        if assignee_ids:
+            payload["task"]["assigneeIds"] = assignee_ids
+        return self._request("POST", "/tasks.json", json_data=payload)
+    
+    # ===== Notebooks =====
+    
+    def list_notebooks(
+        self,
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List notebooks for a project.
+        
+        Note: V3 API uses global /notebooks.json with projectIds filter.
+        """
+        return self._request(
+            "GET",
+            "/notebooks.json",
+            params={"projectIds": project_id, "page": page, "pageSize": page_size}
+        )
+    
+    def get_notebook(self, notebook_id: str) -> Dict[str, Any]:
+        """Get notebook details."""
+        return self._request("GET", f"/notebooks/{notebook_id}.json")
+    
+    # ===== Project Links =====
+    # NOTE: Links endpoints are NOT available in Teamwork API v3.
+    # These methods are commented out pending v1/v2 API integration.
+    
+    # def list_project_links(
+    #     self,
+    #     project_id: str,
+    #     page: int = 1,
+    #     page_size: int = 50,
+    # ) -> Dict[str, Any]:
+    #     """List links in a project. (NOT AVAILABLE IN V3)"""
+    #     pass
+    # 
+    # def create_project_link(
+    #     self,
+    #     project_id: str,
+    #     title: str,
+    #     url: str,
+    #     category_id: Optional[str] = None,
+    #     description: Optional[str] = None,
+    # ) -> Dict[str, Any]:
+    #     """Create a link in a project. (NOT AVAILABLE IN V3)"""
+    #     pass
+    
+    # ===== Project Operations =====
+    
+    def update_project(
+        self,
+        project_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing project.
+        
+        Raises:
+            ValueError: If no update fields are provided.
+        """
+        if all(v is None for v in [name, description, status, start_date, end_date]):
+            raise ValueError("update_project requires at least one field to update")
+        payload = {"project": {}}
+        if name is not None:
+            payload["project"]["name"] = name
+        if description is not None:
+            payload["project"]["description"] = description
+        if status is not None:
+            payload["project"]["status"] = status
+        if start_date is not None:
+            payload["project"]["startDate"] = start_date
+        if end_date is not None:
+            payload["project"]["endDate"] = end_date
+        return self._request("PATCH", f"/projects/{project_id}.json", json_data=payload)
+    
+    def archive_project(self, project_id: str) -> Dict[str, Any]:
+        """Archive a project."""
+        return self.update_project(project_id, status="archived")
+    
+    # ===== Task List Operations =====
+    
+    def update_task_list(
+        self,
+        tasklist_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a task list.
+        
+        Note: Uses v1 API endpoint with 'todo-list' payload key per Teamwork SDK.
+        
+        Raises:
+            ValueError: If neither name nor description is provided.
+        """
+        if name is None and description is None:
+            raise ValueError("update_task_list requires at least one of 'name' or 'description'")
+        payload = {"todo-list": {}}
+        if name is not None:
+            payload["todo-list"]["name"] = name
+        if description is not None:
+            payload["todo-list"]["description"] = description
+        return self._request_v1("PUT", f"/tasklists/{tasklist_id}.json", json_data=payload)
+    
+    def move_task(
+        self,
+        task_id: str,
+        target_tasklist_id: str,
+        target_project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Move a task to a different task list or project.
+        
+        Note: Uses camelCase field names (taskListId, projectId) as expected by Teamwork API.
+        """
+        payload = {"task": {"taskListId": target_tasklist_id}}
+        if target_project_id:
+            payload["task"]["projectId"] = target_project_id
+        return self._request("PATCH", f"/tasks/{task_id}.json", json_data=payload)
+    
+    # ===== Messages =====
+    
+    def list_messages(
+        self,
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """List messages (posts) for a project.
+        
+        Note: V3 API uses global /messages.json with projectIds filter.
+        """
+        return self._request(
+            "GET",
+            "/messages.json",
+            params={"projectIds": project_id, "page": page, "pageSize": page_size}
+        )
+    
+    def create_message(
+        self,
+        project_id: str,
+        title: str,
+        body: str,
+        category_id: Optional[str] = None,
+        notify: bool = False,
+    ) -> Dict[str, Any]:
+        """Create a new message (post) in a project."""
+        payload = {
+            "post": {
+                "title": title,
+                "body": body,
+                "notify": notify,
+            }
+        }
+        if category_id:
+            payload["post"]["categoryId"] = category_id
+        return self._request(
+            "POST",
+            f"/projects/{project_id}/posts.json",
+            json_data=payload
+        )
 

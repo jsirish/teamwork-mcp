@@ -7,7 +7,7 @@ via the Authorization header.
 
 import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import Field
 from fastmcp import FastMCP
@@ -373,6 +373,453 @@ def create_app():
         """
         client = get_teamwork_client(_headers or {})
         return client.get_me()
+    
+    # ========================================
+    # Planning Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_get_my_tasks(
+        date_filter: str = "within7",
+        include_completed: bool = False,
+        _headers: dict = None,
+    ) -> dict:
+        """Get tasks assigned to the current user with due date filtering.
+        
+        Args:
+            date_filter: overdue, today, thisweek, within7, within14, within30
+            include_completed: Whether to include completed tasks
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing filtered tasks for planning
+        """
+        client = get_teamwork_client(_headers or {})
+        me = client.get_me()
+        user_id = me.get("person", {}).get("id") or me.get("id")
+        return client.get_my_tasks(str(user_id), date_filter, include_completed)
+    
+    
+    @mcp.tool()
+    def teamwork_get_project_summary(
+        project_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get a project health summary with task statistics.
+        
+        Args:
+            project_id: Project ID to summarize
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary with project info, task stats, and health status
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_project_summary(project_id)
+    
+    
+    # ========================================
+    # Task List Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_task_lists(
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List task lists for a project.
+        
+        Args:
+            project_id: Project ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_task_lists(project_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_create_task_list(
+        project_id: str,
+        name: str,
+        description: Optional[str] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Create a new task list in a project.
+        
+        Args:
+            project_id: Project ID
+            name: Task list name
+            description: Optional description
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.create_task_list(project_id, name, description)
+    
+    
+    @mcp.tool()
+    def teamwork_update_task_list(
+        tasklist_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Update an existing task list.
+        
+        Args:
+            tasklist_id: Task list ID to update
+            name: New name for the task list
+            description: New description for the task list
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.update_task_list(tasklist_id, name, description)
+    
+    
+    # ========================================
+    # Comment Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_task_comments(
+        task_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List comments on a task.
+        
+        Args:
+            task_id: Task ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_task_comments(task_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_add_task_comment(
+        task_id: str,
+        body: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Add a comment to a task.
+        
+        Args:
+            task_id: Task ID
+            body: Comment text
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.add_task_comment(task_id, body)
+    
+    
+    # ========================================
+    # Tag Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_tags(
+        page: int = 1,
+        page_size: int = 100,
+        _headers: dict = None,
+    ) -> dict:
+        """List all available tags.
+        
+        Args:
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_tags(page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_add_tag_to_task(
+        task_id: str,
+        tag_ids: List[str],
+        _headers: dict = None,
+    ) -> dict:
+        """Add tags to a task.
+        
+        Args:
+            task_id: Task ID
+            tag_ids: List of tag IDs to add
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.add_tag_to_task(task_id, tag_ids)
+    
+    
+    # ========================================
+    # Milestone Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_milestones(
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List milestones for a project.
+        
+        Args:
+            project_id: Project ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_milestones(project_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_get_milestone(
+        milestone_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get milestone details.
+        
+        Args:
+            milestone_id: Milestone ID
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_milestone(milestone_id)
+    
+    
+    # ========================================
+    # Subtask Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_subtasks(
+        task_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List subtasks of a task.
+        
+        Args:
+            task_id: Task ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_subtasks(task_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_create_subtask(
+        task_id: str,
+        name: str,
+        description: Optional[str] = None,
+        assignee_ids: Optional[List[str]] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Create a subtask under a parent task.
+        
+        Args:
+            task_id: Parent task ID
+            name: Subtask name
+            description: Optional description
+            assignee_ids: Optional list of user IDs to assign the subtask to
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.create_subtask(task_id, name, description, assignee_ids)
+    
+    
+    # ========================================
+    # Notebook Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_notebooks(
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List notebooks for a project.
+        
+        Args:
+            project_id: Project ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_notebooks(project_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_get_notebook(
+        notebook_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get notebook details.
+        
+        Args:
+            notebook_id: Notebook ID
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_notebook(notebook_id)
+    
+    
+    # Project Link Tools
+    # NOTE: Project Links are planned features mentioned in user requirements,
+    # but they are NOT available in the Teamwork API v3 due to API limitations.
+    # These tools remain commented out pending v1/v2 (or other compatible) API
+    # integration that exposes Project Links.
+    # ========================================
+    
+    # @mcp.tool()
+    # def teamwork_list_project_links(
+    #     project_id: str,
+    #     page: int = 1,
+    #     page_size: int = 50,
+    #     _headers: dict = None,
+    # ) -> dict:
+    #     """List links in a project. (NOT AVAILABLE IN V3)"""
+    #     client = get_teamwork_client(_headers or {})
+    #     return client.list_project_links(project_id, page, page_size)
+    # 
+    # @mcp.tool()
+    # def teamwork_create_project_link(
+    #     project_id: str,
+    #     title: str,
+    #     url: str,
+    #     description: Optional[str] = None,
+    #     _headers: dict = None,
+    # ) -> dict:
+    #     """Create a link in a project. (NOT AVAILABLE IN V3)"""
+    #     client = get_teamwork_client(_headers or {})
+    #     return client.create_project_link(project_id, title, url, description=description)
+    
+    
+    # ========================================
+    # Project Operations (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_update_project(
+        project_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Update an existing project.
+        
+        Args:
+            project_id: Project ID
+            name: New name
+            description: New description
+            status: New status (e.g., active, archived)
+            start_date: Project start date (YYYY-MM-DD format)
+            end_date: Project end date (YYYY-MM-DD format)
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.update_project(project_id, name, description, status, start_date, end_date)
+    
+    
+    @mcp.tool()
+    def teamwork_archive_project(
+        project_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Archive a project.
+        
+        Args:
+            project_id: Project ID
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.archive_project(project_id)
+    
+    
+    # ========================================
+    # Task Operations (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_move_task(
+        task_id: str,
+        target_tasklist_id: str,
+        target_project_id: Optional[str] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Move a task to a different task list or project.
+        
+        Args:
+            task_id: Task ID to move
+            target_tasklist_id: Destination task list ID
+            target_project_id: Optional destination project ID
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.move_task(task_id, target_tasklist_id, target_project_id)
+    
+    
+    # ========================================
+    # Message Tools (New)
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_list_messages(
+        project_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """List messages (posts) for a project.
+        
+        Args:
+            project_id: Project ID
+            page: Page number
+            page_size: Results per page
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_messages(project_id, page, page_size)
+    
+    
+    @mcp.tool()
+    def teamwork_create_message(
+        project_id: str,
+        title: str,
+        body: str,
+        notify: bool = False,
+        category_id: Optional[str] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Create a new message (post) in a project.
+        
+        Args:
+            project_id: Project ID
+            title: Message title
+            body: Message body
+            notify: Whether to notify project members
+            category_id: Optional message category ID
+            _headers: Request headers (automatically injected by gateway)
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.create_message(project_id, title, body, category_id=category_id, notify=notify)
+    
     
     LOGGER.info("✅ Teamwork tools registered")
     
