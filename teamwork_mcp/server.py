@@ -8,11 +8,17 @@ via the Authorization header.
 import logging
 import os
 from typing import Optional
+from datetime import datetime, timedelta
 
 from pydantic import Field
 from fastmcp import FastMCP
 
-from mcp_base import create_base_app, BaseMCPSettings, run_server
+from mcp_base import (
+    create_base_app,
+    BaseMCPSettings,
+    run_server,
+    extract_token_from_headers,
+)
 
 from .client import TeamworkClient
 
@@ -33,30 +39,11 @@ class TeamworkSettings(BaseMCPSettings):
     port: int = Field(default=3005)
 
 
-def extract_token_from_headers(headers: dict) -> str:
-    """Extract bearer token from Authorization header.
-    
-    Args:
-        headers: Request headers dictionary
-        
-    Returns:
-        Bearer token string
-        
-    Raises:
-        ValueError: If Authorization header is missing or invalid
-    """
-    auth_header = headers.get("authorization", "")
-    if not auth_header:
-        raise ValueError("Missing Authorization header. This server requires OAuth authentication via the gateway.")
-    
-    if not auth_header.lower().startswith("bearer "):
-        raise ValueError("Invalid Authorization header format. Expected 'Bearer <token>'")
-    
-    return auth_header[7:]  # Remove 'Bearer ' prefix
-
-
 def get_teamwork_client(headers: dict) -> TeamworkClient:
     """Create an authenticated Teamwork client from request headers.
+    
+    Uses mcp_base.extract_token_from_headers() to extract the bearer token
+    from the _headers dict injected by the gateway.
     
     Args:
         headers: Request headers dict containing Authorization and optionally X-Teamwork-Domain
@@ -64,7 +51,11 @@ def get_teamwork_client(headers: dict) -> TeamworkClient:
     Returns:
         Authenticated TeamworkClient instance
     """
+    headers = headers or {}
     access_token = extract_token_from_headers(headers)
+    if not access_token:
+        raise ValueError("Missing Authorization header. This server requires OAuth authentication via the gateway.")
+    
     domain = headers.get("x-teamwork-domain") or DEFAULT_DOMAIN
     
     if not domain:
@@ -278,7 +269,62 @@ def create_app():
         """
         client = get_teamwork_client(_headers or {})
         return client.complete_task(task_id)
+        # ========================================
+    # Planning / View Tools
+    # ========================================
     
+    @mcp.tool()
+    def teamwork_get_my_active_tasks(
+        days_ahead: int = 7,
+        _headers: dict = None,
+    ) -> list:
+        """Planning-optimized view of active tasks due soon.
+        
+        Returns a concise list of active tasks with due dates within
+        the next N days, avoiding verbose task payloads and reducing
+        agent context usage.
+        
+        Args:
+            days_ahead: Number of days ahead to look for due tasks (default: 7)
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            List of simplified task objects
+        """
+        client = get_teamwork_client(_headers or {})
+        
+        # Fetch first page of tasks (intentionally limited for planning use)
+        response = client.list_tasks(page=1, page_size=100)
+        tasks = response.get("tasks", [])
+        
+        now = datetime.utcnow()
+        cutoff = now + timedelta(days=days_ahead)
+        
+        results = []
+        
+        for task in tasks:
+            due_date = task.get("dueDate")
+            completed = task.get("completed")
+            
+            if completed or not due_date:
+                continue
+            
+            try:
+                due_dt = datetime.fromisoformat(due_date.replace("Z", ""))
+            except Exception:
+                continue
+            
+            if due_dt <= cutoff:
+                results.append({
+                    "task_id": task.get("id"),
+                    "title": task.get("name"),
+                    "due_date": due_date,
+                    "project_id": task.get("projectId"),
+                    "status": "completed" if completed else "active",
+                })
+        
+        return results
+
     
     # ========================================
     # Time Tracking Tools

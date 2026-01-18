@@ -9,7 +9,14 @@ import os
 from typing import List, Optional
 
 from pydantic import Field
-from mcp_base import create_base_app, BaseMCPSettings, run_server
+from mcp_base import (
+    create_base_app,
+    BaseMCPSettings,
+    run_server,
+    extract_bearer_token,
+    extract_header,
+    AuthenticationError,
+)
 
 from teamwork_mcp.client import TeamworkClient
 
@@ -38,37 +45,20 @@ def create_app():
 def _get_client(ctx):
     """Get authenticated Teamwork client from context.
     
-    The gateway injects the OAuth access token via the Authorization header.
-    We also need to extract the installation domain from the token metadata.
+    Uses mcp_base utilities for consistent token and header extraction.
+    The gateway injects the OAuth access token via the Authorization header
+    and installation domain via the X-Teamwork-Domain header.
     """
-    access_token = None
-    installation_domain = None
-    
-    # Extract token from Authorization header (injected by gateway)
-    try:
-        request_context = getattr(ctx, "request_context", None)
-        if request_context and getattr(request_context, "request", None):
-            auth_header = request_context.request.headers.get("Authorization", "")
-            if auth_header.lower().startswith("bearer "):
-                access_token = auth_header[7:].strip()
-            
-            # The gateway should also inject the installation domain
-            # via a custom header (to be implemented in gateway)
-            installation_domain = request_context.request.headers.get(
-                "X-Teamwork-Domain",
-                os.getenv("TEAMWORK_DOMAIN", "dynamic8.teamwork.com")
-            )
-    except Exception as e:
-        LOGGER.warning("Could not extract token from context: %s", e)
-    
-    # Fallback to env vars for local testing
-    if not access_token:
-        access_token = os.getenv("TEAMWORK_ACCESS_TOKEN")
-    if not installation_domain:
-        installation_domain = os.getenv("TEAMWORK_DOMAIN", "dynamic8.teamwork.com")
+    access_token = extract_bearer_token(ctx, fallback_env="TEAMWORK_ACCESS_TOKEN")
+    installation_domain = extract_header(
+        ctx,
+        "X-Teamwork-Domain",
+        fallback_env="TEAMWORK_DOMAIN",
+        default="dynamic8.teamwork.com"
+    )
     
     if not access_token:
-        raise RuntimeError(
+        raise AuthenticationError(
             "No Teamwork access token available. "
             "Please authenticate via the gateway's OAuth flow at /oauth/teamwork/authorize"
         )
@@ -77,6 +67,7 @@ def _get_client(ctx):
         access_token=access_token,
         installation_domain=installation_domain
     )
+
 
 
 def _register_teamwork_tools(mcp, settings):
