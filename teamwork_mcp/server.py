@@ -190,21 +190,27 @@ def create_app():
     
     @mcp.tool()
     def teamwork_create_task(
-        project_id: str,
+        tasklist_id: str,
         name: str,
         description: Optional[str] = None,
-       due_date: Optional[str] = None,
-        assignee_id: Optional[str] = None,
+        due_date: Optional[str] = None,
+        assignee_ids: Optional[List[str]] = None,
+        priority: Optional[str] = None,
+        estimated_minutes: Optional[int] = None,
+        progress: Optional[int] = None,
         _headers: dict = None,
     ) -> dict:
         """Create a new Teamwork task.
         
         Args:
-            project_id: ID of the project to create the task in
+            tasklist_id: ID of the task list to create the task in
             name: Task name
             description: Optional task description
             due_date: Optional due date (YYYY-MM-DD format)
-            assignee_id: Optional ID of the person to assign the task to
+            assignee_ids: Optional list of user IDs to assign the task to
+            priority: Optional priority (low, medium, high)
+            estimated_minutes: Optional estimated time to complete in minutes
+            progress: Optional initial progress percentage (0-100)
             _headers: Request headers (automatically injected by gateway)
         
         Returns:
@@ -212,11 +218,14 @@ def create_app():
         """
         client = get_teamwork_client(_headers or {})
         return client.create_task(
-            project_id=project_id,
             name=name,
+            tasklist_id=tasklist_id,
             description=description,
             due_date=due_date,
-            assignee_id=assignee_id,
+            assignee_ids=assignee_ids,
+            priority=priority,
+            estimated_minutes=estimated_minutes,
+            progress=progress,
         )
     
     
@@ -226,7 +235,10 @@ def create_app():
         name: Optional[str] = None,
         description: Optional[str] = None,
         due_date: Optional[str] = None,
-        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        completed: Optional[bool] = None,
+        estimated_minutes: Optional[int] = None,
+        progress: Optional[int] = None,
         _headers: dict = None,
     ) -> dict:
         """Update a Teamwork task.
@@ -236,7 +248,10 @@ def create_app():
             name: Optional new task name
             description: Optional new task description
             due_date: Optional new due date (YYYY-MM-DD format)
-            status: Optional new status (e.g., "new", "in-progress", "completed")
+            priority: Optional priority (low, medium, high)
+            completed: Optional completion status (true/false)
+            estimated_minutes: Optional estimated time to complete in minutes
+            progress: Optional progress percentage (0-100)
             _headers: Request headers (automatically injected by gateway)
         
         Returns:
@@ -248,7 +263,10 @@ def create_app():
             name=name,
             description=description,
             due_date=due_date,
-            status=status,
+            priority=priority,
+            completed=completed,
+            estimated_minutes=estimated_minutes,
+            progress=progress,
         )
     
     
@@ -819,6 +837,133 @@ def create_app():
         """
         client = get_teamwork_client(_headers or {})
         return client.create_message(project_id, title, body, category_id=category_id, notify=notify)
+    
+    
+    # ========================================
+    # Timer Tools
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_get_active_timer(
+        _headers: dict = None,
+    ) -> dict:
+        """Get the current user's active timer.
+        
+        Args:
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing active timer details, or empty if no timer running
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_active_timer()
+    
+    
+    @mcp.tool()
+    def teamwork_start_timer(
+        project_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        description: Optional[str] = None,
+        is_billable: bool = True,
+        _headers: dict = None,
+    ) -> dict:
+        """Start a new timer for time tracking.
+        
+        Args:
+            project_id: Optional project ID to track time against
+            task_id: Optional task ID to track time against
+            description: Description of the work being done
+            is_billable: Whether the time is billable (default: True)
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing started timer details
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.start_timer(
+            project_id=project_id,
+            task_id=task_id,
+            description=description,
+            is_billable=is_billable,
+        )
+    
+    
+    @mcp.tool()
+    def teamwork_stop_timer(
+        timer_id: str,
+        description: Optional[str] = None,
+        is_billable: Optional[bool] = None,
+        _headers: dict = None,
+    ) -> dict:
+        """Stop a running timer and log the time entry.
+        
+        Args:
+            timer_id: Timer ID to stop (get from teamwork_get_active_timer)
+            description: Optional updated description for the time entry
+            is_billable: Optional billable status update
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing completed timer and created time entry
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.stop_timer(timer_id, description=description, is_billable=is_billable)
+    
+    
+    @mcp.tool()
+    def teamwork_pause_timer(
+        timer_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Pause a running timer.
+        
+        Args:
+            timer_id: Timer ID to pause
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing the paused timer details
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.pause_timer(timer_id)
+    
+    
+    @mcp.tool()
+    def teamwork_resume_timer(
+        timer_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Resume a paused timer.
+        
+        Args:
+            timer_id: Timer ID to resume
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing resumed timer details
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.resume_timer(timer_id)
+    
+    
+    @mcp.tool()
+    def teamwork_cancel_timer(
+        timer_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Cancel a timer without logging time.
+        
+        Use this to discard a timer that was started by mistake.
+        
+        Args:
+            timer_id: Timer ID to cancel
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing the cancellation response
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.cancel_timer(timer_id)
     
     
     LOGGER.info("✅ Teamwork tools registered")

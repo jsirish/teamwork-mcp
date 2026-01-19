@@ -153,12 +153,25 @@ class TeamworkClient(BaseAPIClient):
         due_date: Optional[str] = None,
         assignee_ids: Optional[List[str]] = None,
         priority: Optional[str] = None,
+        estimated_minutes: Optional[int] = None,
+        progress: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Create a new task."""
+        """Create a new task.
+        
+        Args:
+            name: Task name
+            tasklist_id: Task list ID to create the task in
+            description: Task description
+            due_date: Due date in YYYY-MM-DD format
+            assignee_ids: List of user IDs to assign
+            priority: Priority level (low, medium, high)
+            estimated_minutes: Estimated time to complete in minutes
+            progress: Progress percentage (0=not started, 100=complete)
+        """
         payload = {
             "task": {
                 "name": name,
-                "taskListId": tasklist_id,
+                "tasklistId": int(tasklist_id),
             }
         }
         if description:
@@ -169,8 +182,16 @@ class TeamworkClient(BaseAPIClient):
             payload["task"]["assigneeIds"] = assignee_ids
         if priority:
             payload["task"]["priority"] = priority
+        if estimated_minutes is not None:
+            if estimated_minutes <= 0:
+                raise ValueError("estimated_minutes must be a positive value")
+            payload["task"]["estimatedMinutes"] = estimated_minutes
+        if progress is not None:
+            if not 0 <= progress <= 100:
+                raise ValueError("progress must be between 0 and 100")
+            payload["task"]["progress"] = progress
             
-        return self._request("POST", "/tasks.json", json_data=payload)
+        return self._request("POST", f"/tasklists/{tasklist_id}/tasks.json", json_data=payload)
     
     def update_task(
         self,
@@ -180,8 +201,25 @@ class TeamworkClient(BaseAPIClient):
         completed: Optional[bool] = None,
         due_date: Optional[str] = None,
         priority: Optional[str] = None,
+        estimated_minutes: Optional[int] = None,
+        progress: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Update an existing task."""
+        """Update an existing task.
+        
+        Args:
+            task_id: Task ID to update
+            name: New task name
+            description: New description
+            completed: Mark as completed
+            due_date: New due date in YYYY-MM-DD format
+            priority: Priority level (low, medium, high)
+            estimated_minutes: Estimated time to complete in minutes
+            progress: Progress percentage (0=not started, 100=complete)
+        
+        Note:
+            When both completed and progress are provided, they must be consistent:
+            completed=True requires progress=100, and progress=100 requires completed=True.
+        """
         payload = {"task": {}}
         if name is not None:
             payload["task"]["name"] = name
@@ -193,6 +231,17 @@ class TeamworkClient(BaseAPIClient):
             payload["task"]["dueDate"] = due_date
         if priority is not None:
             payload["task"]["priority"] = priority
+        if estimated_minutes is not None:
+            if estimated_minutes <= 0:
+                raise ValueError("estimated_minutes must be a positive value")
+            payload["task"]["estimatedMinutes"] = estimated_minutes
+        if progress is not None:
+            if not 0 <= progress <= 100:
+                raise ValueError("progress must be between 0 and 100")
+            payload["task"]["progress"] = progress
+        
+        if completed is not None:
+            payload["task"]["completed"] = completed
             
         return self._request("PATCH", f"/tasks/{task_id}.json", json_data=payload)
     
@@ -658,3 +707,108 @@ class TeamworkClient(BaseAPIClient):
             json_data=payload
         )
 
+    # ===== Timers =====
+    
+    def get_active_timer(self) -> Dict[str, Any]:
+        """Get the current user's active timer.
+        
+        Returns:
+            Dictionary containing active timer details, or empty if no timer running
+        """
+        return self._request("GET", "/me/timers.json")
+    
+    def start_timer(
+        self,
+        project_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        description: Optional[str] = None,
+        is_billable: bool = True,
+    ) -> Dict[str, Any]:
+        """Start a new timer.
+        
+        Uses V3 API endpoint: POST /me/timers.json
+        Per official Teamwork API examples:
+        https://github.com/Teamwork/Teamwork.com-API-Request-Examples
+        
+        Args:
+            project_id: Project ID to track time against
+            task_id: Optional task ID to track time against (0 or omit if not linked to task)
+            description: Description of the work being done
+            is_billable: Whether the time is billable (default: True)
+            
+        Returns:
+            Dictionary containing started timer details
+            
+        Note:
+            Only one timer can be active per task. If starting a project-level timer
+            (no task_id), only one project-level timer can be active at a time.
+        """
+        # V3 API uses nested "timer" payload
+        timer_data: Dict[str, Any] = {}
+        if project_id:
+            timer_data["projectId"] = int(project_id)
+        if task_id:
+            timer_data["taskId"] = int(task_id)
+        if description:
+            timer_data["description"] = description
+        if not is_billable:
+            timer_data["isBillable"] = False
+            
+        payload = {"timer": timer_data}
+        return self._request("POST", "/me/timers.json", json_data=payload)
+    
+    def stop_timer(
+        self,
+        timer_id: str,
+        description: Optional[str] = None,
+        is_billable: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Stop a running timer and log the time.
+        
+        Args:
+            timer_id: Timer ID to stop
+            description: Optional updated description
+            is_billable: Optional billable status update
+            
+        Returns:
+            Dictionary containing completed timer and time entry details
+        """
+        payload: Dict[str, Any] = {"timer": {}}
+        if description is not None:
+            payload["timer"]["description"] = description
+        if is_billable is not None:
+            payload["timer"]["isBillable"] = is_billable
+        return self._request("PUT", f"/me/timers/{timer_id}/complete.json", json_data=payload)
+    
+    def pause_timer(self, timer_id: str) -> Dict[str, Any]:
+        """Pause a running timer.
+        
+        Args:
+            timer_id: Timer ID to pause
+        
+        Returns:
+            Dictionary containing paused timer details
+        """
+        return self._request("PUT", f"/me/timers/{timer_id}/pause.json")
+    
+    def resume_timer(self, timer_id: str) -> Dict[str, Any]:
+        """Resume a paused timer.
+        
+        Args:
+            timer_id: Timer ID to resume
+        
+        Returns:
+            Dictionary containing resumed timer details
+        """
+        return self._request("PUT", f"/me/timers/{timer_id}/resume.json")
+    
+    def cancel_timer(self, timer_id: str) -> Dict[str, Any]:
+        """Cancel a timer without logging time.
+        
+        Args:
+            timer_id: Timer ID to cancel
+        
+        Returns:
+            Dictionary containing the cancellation response
+        """
+        return self._request("DELETE", f"/me/timers/{timer_id}.json")
