@@ -80,21 +80,27 @@ def create_app():
     @mcp.tool()
     def teamwork_list_projects(
         page: int = 1,
-        page_size: int = 50,
+        page_size: int = 25,
+        include_details: bool = False,
         _headers: dict = None,
     ) -> dict:
         """List all Teamwork projects.
         
+        By default, returns minimal project data (id, name, status, company) to reduce
+        response size for AI clients. Use include_details=True for full project objects.
+        
         Args:
             page: Page number for pagination (default: 1)
-            page_size: Number of results per page (default: 50, max: 500)
+            page_size: Number of results per page (default: 25, max: 500)
+            include_details: Return full project objects (default: False for minimal data)
             _headers: Request headers (automatically injected by gateway)
         
         Returns:
-            Dictionary containing projects list and metadata
+            Dictionary containing projects list and pagination metadata
         """
         client = get_teamwork_client(_headers or {})
-        return client.list_projects(page=page, page_size=page_size)
+        return client.list_projects(page=page, page_size=page_size, include_details=include_details)
+
     
     
     @mcp.tool()
