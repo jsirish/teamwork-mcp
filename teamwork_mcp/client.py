@@ -96,13 +96,45 @@ class TeamworkClient(BaseAPIClient):
     
     # ===== Project Management =====
     
-    def list_projects(self, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
-        """List all projects."""
-        return self._request(
+    def list_projects(
+        self,
+        page: int = 1,
+        page_size: int = 25,
+        include_details: bool = False,
+    ) -> Dict[str, Any]:
+        """List all projects.
+        
+        Args:
+            page: Page number for pagination (default: 1)
+            page_size: Number of results per page (default: 25)
+            include_details: If True, return full project objects. If False (default),
+                return minimal data (id, name, status, company) to reduce response size.
+        
+        Returns:
+            Dictionary containing projects list and pagination metadata
+        """
+        response = self._request(
             "GET",
             "/projects.json",
             params={"page": page, "pageSize": page_size}
         )
+        
+        if not include_details:
+            # Return minimal project data to reduce token usage
+            minimal_projects = []
+            for project in response.get("projects", []):
+                minimal_projects.append({
+                    "id": project.get("id"),
+                    "name": project.get("name"),
+                    "status": project.get("status"),
+                    "company": project.get("company", {}).get("name"),
+                })
+            return {
+                "projects": minimal_projects,
+                "meta": response.get("meta", {}),
+            }
+        
+        return response
     
     def get_project(self, project_id: str) -> Dict[str, Any]:
         """Get project details."""
