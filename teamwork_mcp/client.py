@@ -121,6 +121,7 @@ class TeamworkClient(BaseAPIClient):
         
         if not include_details:
             # Return minimal project data to reduce token usage
+            # Includes budget fields per issue #40
             minimal_projects = []
             for project in response.get("projects", []):
                 minimal_projects.append({
@@ -128,6 +129,8 @@ class TeamworkClient(BaseAPIClient):
                     "name": project.get("name"),
                     "status": project.get("status"),
                     "company": (project.get("company") or {}).get("name"),
+                    "timeBudget": project.get("timeBudget"),
+                    "financialBudget": project.get("financialBudget"),
                 })
             return {
                 "projects": minimal_projects,
@@ -139,6 +142,85 @@ class TeamworkClient(BaseAPIClient):
     def get_project(self, project_id: str) -> Dict[str, Any]:
         """Get project details."""
         return self._request("GET", f"/projects/{project_id}.json")
+    
+    def get_project_budget(self, budget_id: str) -> Dict[str, Any]:
+        """Get detailed budget information for a project budget.
+        
+        Use the budget ID from financialBudget.id or timeBudget.id
+        returned by list_projects or get_project.
+        
+        Args:
+            budget_id: The budget ID (e.g., from financialBudget.id)
+        
+        Returns:
+            Dictionary containing budget details including:
+            - id, projectId, type (financial/time)
+            - status, capacity, capacityUsed
+            - startDateTime, endDateTime
+            - currencyCode (for financial budgets)
+        """
+        # Use the budget report endpoint to get details
+        response = self._request(
+            "GET",
+            f"/projects/budgets/{budget_id}.json",
+        )
+        # Return unwrapped budget object for cleaner interface
+        return response.get("budget", {})
+    
+    def list_project_budgets(self, project_id: str) -> Dict[str, Any]:
+        """List all budgets for a project.
+        
+        Returns both time and financial budgets configured for the project.
+        This is a convenience method that fetches the project and extracts
+        budget information.
+        
+        Args:
+            project_id: The project ID
+        
+        Returns:
+            Dictionary containing:
+            - project_id: The project ID
+            - project_name: Project name
+            - budgets: List of full budget details for each budget associated with
+              the project. Each item includes fields like id, projectId, type,
+              status, capacity, capacityUsed, startDateTime, endDateTime, currencyCode.
+              If fetching fails, returns minimal dict with id, type, and error.
+            - has_time_budget: True if the project has a time budget with valid ID
+            - has_financial_budget: True if the project has a financial budget with valid ID
+        """
+        # Get project details which includes budget references
+        project_resp = self.get_project(project_id)
+        project = project_resp.get("project", {})
+        
+        budgets = []
+        
+        # Check for time budget
+        tb = project.get("timeBudget")
+        if tb and tb.get("id"):
+            try:
+                budget_detail = self.get_project_budget(str(tb["id"]))
+                budgets.append(budget_detail)
+            except Exception as e:
+                LOGGER.warning(f"Failed to fetch time budget {tb['id']}: {e}")
+                budgets.append({"id": tb["id"], "type": "TIME", "error": "Could not fetch details"})
+        
+        # Check for financial budget
+        fb = project.get("financialBudget")
+        if fb and fb.get("id"):
+            try:
+                budget_detail = self.get_project_budget(str(fb["id"]))
+                budgets.append(budget_detail)
+            except Exception as e:
+                LOGGER.warning(f"Failed to fetch financial budget {fb['id']}: {e}")
+                budgets.append({"id": fb["id"], "type": "FINANCIAL", "error": "Could not fetch details"})
+        
+        return {
+            "project_id": project_id,
+            "project_name": project.get("name"),
+            "budgets": budgets,
+            "has_time_budget": bool(tb and tb.get("id")),
+            "has_financial_budget": bool(fb and fb.get("id")),
+        }
     
     def create_project(
         self,

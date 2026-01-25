@@ -122,6 +122,58 @@ def create_app():
     
     
     @mcp.tool()
+    def teamwork_get_project_budget(
+        budget_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get detailed budget information for a project budget.
+        
+        Use the budget ID from financialBudget.id or timeBudget.id
+        returned by teamwork_list_projects or teamwork_get_project.
+        
+        Args:
+            budget_id: The budget ID (e.g., "127645" from financialBudget.id)
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing budget details including:
+            - capacity: Total budget amount (hours or currency)
+            - capacityUsed: Amount used so far
+            - status: Budget status
+            - type: "FINANCIAL" or "TIME"
+            - currencyCode: Currency for financial budgets
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_project_budget(budget_id)
+    
+    
+    @mcp.tool()
+    def teamwork_list_project_budgets(
+        project_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """List all budgets for a Teamwork project.
+        
+        Returns both time and financial budgets with full details including
+        capacity, capacityUsed, status, and other budget information.
+        
+        Args:
+            project_id: The project ID to get budgets for
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing:
+            - project_id: The project ID
+            - project_name: The project name
+            - budgets: List of budget objects with full details
+            - has_time_budget: Whether project has a time budget
+            - has_financial_budget: Whether project has a financial budget
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.list_project_budgets(project_id)
+    
+    
+    @mcp.tool()
     def teamwork_create_project(
         name: str,
         description: Optional[str] = None,
