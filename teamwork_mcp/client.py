@@ -240,6 +240,177 @@ class TeamworkClient(BaseAPIClient):
             
         return self._request("POST", "/projects.json", json_data=payload)
     
+    # ===== Time Totals (Unofficial Budgets) =====
+
+    def get_project_time_totals(self, project_id: str) -> Dict[str, Any]:
+        """Get time totals for a project (unofficial budget data).
+        
+        Fetches aggregated estimated and actual time for an entire project.
+        This enables "unofficial budgets" by treating total estimated
+        time as the budget and logged time as usage.
+        
+        Args:
+            project_id: The project ID
+        
+        Returns:
+            Dictionary containing:
+            - project_id: The project ID
+            - estimated_minutes: Total estimated time across all tasks (budget)
+            - minutes: Total logged time (used)
+            - remaining_minutes: Calculated difference (budget - used)
+            - is_over_budget: True if logged time exceeds estimated
+        """
+        response = self._request_v1(
+            "GET",
+            f"/projects/{project_id}/time/total.json",
+            params={"includeArchivedProjects": "true"},
+        )
+        totals = response.get("time-totals", response.get("timeTotals", {}))
+        
+        estimated = totals.get("estimatedMinutes", 0)
+        logged = totals.get("minutes", 0)
+        remaining = estimated - logged
+        
+        return {
+            "project_id": project_id,
+            "estimated_minutes": estimated,
+            "minutes": logged,
+            "remaining_minutes": remaining,
+            "is_over_budget": logged > estimated,
+        }
+    
+    def get_tasklist_time_totals(self, tasklist_id: str) -> Dict[str, Any]:
+        """Get time totals for a tasklist.
+        
+        Fetches aggregated estimated and actual time for a specific tasklist.
+        
+        Args:
+            tasklist_id: The tasklist ID
+        
+        Returns:
+            Dictionary containing:
+            - tasklist_id: The tasklist ID
+            - estimated_minutes: Total estimated time for tasklist tasks
+            - minutes: Total logged time
+            - remaining_minutes: Calculated difference
+            - is_over_budget: True if logged time exceeds estimated
+        """
+        response = self._request_v1(
+            "GET",
+            f"/tasklists/{tasklist_id}/time/total.json",
+            params={"includeArchivedProjects": "true"},
+        )
+        totals = response.get("time-totals", response.get("timeTotals", {}))
+        
+        estimated = totals.get("estimatedMinutes", 0)
+        logged = totals.get("minutes", 0)
+        remaining = estimated - logged
+        
+        return {
+            "tasklist_id": tasklist_id,
+            "estimated_minutes": estimated,
+            "minutes": logged,
+            "remaining_minutes": remaining,
+            "is_over_budget": logged > estimated,
+        }
+    
+    def get_task_time_totals(self, task_id: str) -> Dict[str, Any]:
+        """Get time totals for a specific task.
+        
+        Fetches estimated and actual time for a single task.
+        Useful for task-level budget tracking.
+        
+        Args:
+            task_id: The task ID
+        
+        Returns:
+            Dictionary containing:
+            - task_id: The task ID
+            - estimated_minutes: Estimated time for the task
+            - minutes: Logged time on the task
+            - remaining_minutes: Calculated difference
+            - is_over_budget: True if logged time exceeds estimated
+        """
+        response = self._request_v1(
+            "GET",
+            f"/tasks/{task_id}/time/total.json",
+            params={"includeArchivedProjects": "true"},
+        )
+        totals = response.get("time-totals", response.get("timeTotals", {}))
+        
+        estimated = totals.get("estimatedMinutes", 0)
+        logged = totals.get("minutes", 0)
+        remaining = estimated - logged
+        
+        return {
+            "task_id": task_id,
+            "estimated_minutes": estimated,
+            "minutes": logged,
+            "remaining_minutes": remaining,
+            "is_over_budget": logged > estimated,
+        }
+    
+    def estimate_project_budget(self, project_id: str) -> Dict[str, Any]:
+        """Get unofficial budget estimate for a project.
+        
+        High-level convenience method that returns budget-like data
+        calculated from task estimated times and logged hours.
+        Useful for projects without official Teamwork budgets.
+        
+        Args:
+            project_id: The project ID
+        
+        Returns:
+            Dictionary containing:
+            - projectId: The project ID
+            - projectName: Project name (if available)
+            - budgetType: "estimated" (indicates unofficial/calculated)
+            - budgetMinutes: Total estimated time (the "budget")
+            - usedMinutes: Total logged time
+            - remainingMinutes: Difference (budget - used)
+            - percentUsed: Usage percentage
+            - isOverBudget: True if over budget
+            - hasOfficialBudget: True if project has a Teamwork budget
+        """
+        # Get project details for name and official budget status
+        project_resp = self.get_project(project_id)
+        project = project_resp.get("project", {})
+        project_name = project.get("name", "Unknown")
+        
+        # Check if project has official budgets
+        tb = project.get("timeBudget")
+        fb = project.get("financialBudget")
+        has_official = bool((tb and tb.get("id")) or (fb and fb.get("id")))
+        
+        # Get time totals for unofficial budget
+        time_totals = self.get_project_time_totals(project_id)
+        
+        estimated = time_totals["estimated_minutes"]
+        used = time_totals["minutes"]
+        remaining = time_totals["remaining_minutes"]
+        
+        # Handle percent_used edge cases
+        if estimated > 0:
+            percent_used = round((used / estimated) * 100)
+        elif used > 0:
+            # No estimate but some time used: percentage is undefined
+            percent_used = None
+        else:
+            # No estimate and no time used: effectively 0% used
+            percent_used = 0
+        
+        return {
+            "project_id": project_id,
+            "project_name": project_name,
+            "budget_type": "estimated",
+            "budget_minutes": estimated,
+            "used_minutes": used,
+            "remaining_minutes": remaining,
+            "percent_used": percent_used,
+            "is_over_budget": time_totals["is_over_budget"],
+            "has_official_budget": has_official,
+        }
+
     # ===== Task Management =====
     
     def list_tasks(

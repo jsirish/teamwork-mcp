@@ -203,6 +203,118 @@ def create_app():
     
     
     # ========================================
+    # Time Totals / Unofficial Budgets  
+    # ========================================
+    
+    @mcp.tool()
+    def teamwork_get_project_time_totals(
+        project_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get time totals for a project (unofficial budget).
+        
+        Fetches aggregated estimated and logged time for an entire project.
+        Useful for "unofficial budgets" where total task estimates serve as
+        the budget and logged time represents usage.
+        
+        Args:
+            project_id: Project ID to get time totals for
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing:
+            - project_id: The project ID
+            - estimated_minutes: Total estimated time (budget)
+            - minutes: Total logged time (used)
+            - remaining_minutes: Difference (budget - used)
+            - is_over_budget: True if logged exceeds estimated
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_project_time_totals(project_id)
+    
+    
+    @mcp.tool()
+    def teamwork_get_tasklist_time_totals(
+        tasklist_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get time totals for a tasklist.
+        
+        Fetches aggregated estimated and logged time for tasks in a tasklist.
+        
+        Args:
+            tasklist_id: Tasklist ID to get time totals for
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing:
+            - tasklist_id: The tasklist ID
+            - estimated_minutes: Total estimated time
+            - minutes: Total logged time
+            - remaining_minutes: Difference
+            - is_over_budget: True if logged exceeds estimated
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_tasklist_time_totals(tasklist_id)
+    
+    
+    @mcp.tool()
+    def teamwork_get_task_time_totals(
+        task_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get time totals for a specific task.
+        
+        Fetches estimated and logged time for a single task.
+        
+        Args:
+            task_id: Task ID to get time totals for
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing:
+            - task_id: The task ID
+            - estimated_minutes: Estimated time for the task
+            - minutes: Logged time on the task
+            - remaining_minutes: Difference
+            - is_over_budget: True if logged exceeds estimated
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.get_task_time_totals(task_id)
+    
+    
+    @mcp.tool()
+    def teamwork_estimate_project_budget(
+        project_id: str,
+        _headers: dict = None,
+    ) -> dict:
+        """Get unofficial budget estimate for a project.
+        
+        High-level tool that returns budget-like data calculated from
+        task estimated times and logged hours. Ideal for projects without
+        official Teamwork budgets (limited to 30 on Grow tier).
+        
+        Args:
+            project_id: Project ID to estimate budget for
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing:
+            - project_id: The project ID
+            - project_name: Project name
+            - budget_type: "estimated" (indicates unofficial/calculated)
+            - budget_minutes: Total estimated time (the "budget")
+            - used_minutes: Total logged time
+            - remaining_minutes: Difference
+            - percent_used: Usage percentage (None if no estimate but time logged)
+            - is_over_budget: True if over budget
+            - has_official_budget: True if project has a Teamwork budget
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.estimate_project_budget(project_id)
+    
+    
+    # ========================================
     # Task Tools
     # ========================================
     
