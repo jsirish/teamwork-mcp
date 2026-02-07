@@ -78,7 +78,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_projects(
+    def list_projects(
         page: int = 1,
         page_size: int = 25,
         include_details: bool = False,
@@ -104,7 +104,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_project(
+    def get_project(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -122,7 +122,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_project_budget(
+    def get_project_budget(
         budget_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -148,7 +148,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_list_project_budgets(
+    def list_project_budgets(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -174,7 +174,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_create_project(
+    def create_project(
         name: str,
         description: Optional[str] = None,
         start_date: Optional[str] = None,
@@ -207,7 +207,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_get_project_time_totals(
+    def get_project_time_totals(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -234,7 +234,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_tasklist_time_totals(
+    def get_tasklist_time_totals(
         tasklist_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -259,7 +259,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_task_time_totals(
+    def get_task_time_totals(
         task_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -284,7 +284,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_estimate_project_budget(
+    def estimate_project_budget(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -319,7 +319,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_tasks(
+    def list_tasks(
         project_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
@@ -341,7 +341,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_task(
+    def get_task(
         task_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -359,7 +359,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_create_task(
+    def create_task(
         tasklist_id: str,
         name: str,
         description: Optional[str] = None,
@@ -400,7 +400,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_update_task(
+    def update_task(
         task_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -441,7 +441,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_complete_task(
+    def complete_task(
         task_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -463,7 +463,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_log_time(
+    def log_time(
         project_id: str,
         hours: float,
         description: str,
@@ -495,7 +495,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_time_entries(
+    def get_time_entries(
         project_id: Optional[str] = None,
         user_id: Optional[str] = None,
         page: int = 1,
@@ -528,7 +528,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_people(
+    def list_people(
         page: int = 1,
         page_size: int = 50,
         _headers: dict = None,
@@ -548,7 +548,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_me(
+    def get_me(
         _headers: dict = None,
     ) -> dict:
         """Get current authenticated user's information.
@@ -567,7 +567,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_get_my_tasks(
+    def get_my_tasks(
         date_filter: str = "within7",
         include_completed: bool = False,
         _headers: dict = None,
@@ -589,7 +589,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_project_summary(
+    def get_project_summary(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -611,7 +611,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_task_lists(
+    def list_task_lists(
         project_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -630,7 +630,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_create_task_list(
+    def create_task_list(
         project_id: str,
         name: str,
         description: Optional[str] = None,
@@ -649,7 +649,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_update_task_list(
+    def update_task_list(
         tasklist_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -672,7 +672,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_task_comments(
+    def list_task_comments(
         task_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -691,7 +691,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_add_task_comment(
+    def add_task_comment(
         task_id: str,
         body: str,
         _headers: dict = None,
@@ -712,7 +712,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_tags(
+    def list_tags(
         page: int = 1,
         page_size: int = 100,
         _headers: dict = None,
@@ -729,7 +729,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_add_tag_to_task(
+    def add_tag_to_task(
         task_id: str,
         tag_ids: List[str],
         _headers: dict = None,
@@ -750,7 +750,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_milestones(
+    def list_milestones(
         project_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -769,7 +769,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_milestone(
+    def get_milestone(
         milestone_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -788,7 +788,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_subtasks(
+    def list_subtasks(
         task_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -807,7 +807,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_create_subtask(
+    def create_subtask(
         task_id: str,
         name: str,
         description: Optional[str] = None,
@@ -832,7 +832,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_notebooks(
+    def list_notebooks(
         project_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -851,7 +851,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_get_notebook(
+    def get_notebook(
         notebook_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -873,7 +873,7 @@ def create_app():
     # ========================================
     
     # @mcp.tool()
-    # def teamwork_list_project_links(
+    # def list_project_links(
     #     project_id: str,
     #     page: int = 1,
     #     page_size: int = 50,
@@ -884,7 +884,7 @@ def create_app():
     #     return client.list_project_links(project_id, page, page_size)
     # 
     # @mcp.tool()
-    # def teamwork_create_project_link(
+    # def create_project_link(
     #     project_id: str,
     #     title: str,
     #     url: str,
@@ -901,7 +901,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_update_project(
+    def update_project(
         project_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -926,7 +926,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_archive_project(
+    def archive_project(
         project_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -945,7 +945,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_move_task(
+    def move_task(
         task_id: str,
         target_tasklist_id: str,
         target_project_id: Optional[str] = None,
@@ -968,7 +968,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_list_messages(
+    def list_messages(
         project_id: str,
         page: int = 1,
         page_size: int = 50,
@@ -987,7 +987,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_create_message(
+    def create_message(
         project_id: str,
         title: str,
         body: str,
@@ -1014,7 +1014,7 @@ def create_app():
     # ========================================
     
     @mcp.tool()
-    def teamwork_get_active_timer(
+    def get_active_timer(
         _headers: dict = None,
     ) -> dict:
         """Get the current user's active timer.
@@ -1030,7 +1030,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_start_timer(
+    def start_timer(
         project_id: Optional[str] = None,
         task_id: Optional[str] = None,
         description: Optional[str] = None,
@@ -1059,7 +1059,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_stop_timer(
+    def stop_timer(
         timer_id: str,
         description: Optional[str] = None,
         is_billable: Optional[bool] = None,
@@ -1081,7 +1081,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_pause_timer(
+    def pause_timer(
         timer_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -1099,7 +1099,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_resume_timer(
+    def resume_timer(
         timer_id: str,
         _headers: dict = None,
     ) -> dict:
@@ -1117,7 +1117,7 @@ def create_app():
     
     
     @mcp.tool()
-    def teamwork_cancel_timer(
+    def cancel_timer(
         timer_id: str,
         _headers: dict = None,
     ) -> dict:
