@@ -372,6 +372,12 @@ def create_app():
     ) -> dict:
         """Create a new task in Teamwork.
         
+        Note:
+            This tool replaces the older ``create_task`` tool exposed by the
+            gateway. The previous ``create_task`` tool name collided with HubSpot's
+            tool of the same name. Clients currently calling ``create_task`` should
+            migrate to ``create_teamwork_task`` to ensure forward compatibility.
+        
         Args:
             tasklist_id: ID of the task list to create the task in
             name: Task name
