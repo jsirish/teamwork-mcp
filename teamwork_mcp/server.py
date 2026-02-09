@@ -359,7 +359,7 @@ def create_app():
     
     
     @mcp.tool()
-    def create_task(
+    def create_teamwork_task(
         tasklist_id: str,
         name: str,
         description: Optional[str] = None,
@@ -370,7 +370,7 @@ def create_app():
         progress: Optional[int] = None,
         _headers: dict = None,
     ) -> dict:
-        """Create a new Teamwork task.
+        """Create a new task in Teamwork.
         
         Args:
             tasklist_id: ID of the task list to create the task in
