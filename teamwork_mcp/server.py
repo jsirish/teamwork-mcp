@@ -535,6 +535,7 @@ def create_app():
     
     @mcp.tool()
     def list_people(
+        search_term: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
         _headers: dict = None,
@@ -542,6 +543,7 @@ def create_app():
         """List all people in the Teamwork account.
         
         Args:
+            search_term: Optional search term to filter by name or email
             page: Page number for pagination (default: 1)
             page_size: Number of results per page (default: 50, max: 500)
             _headers: Request headers (automatically injected by gateway)
@@ -550,7 +552,37 @@ def create_app():
             Dictionary containing people list and metadata
         """
         client = get_teamwork_client(_headers or {})
-        return client.list_people(page=page, page_size=page_size)
+        return client.list_people(
+            search_term=search_term,
+            page=page,
+            page_size=page_size,
+        )
+    
+    
+    @mcp.tool()
+    def search_people(
+        search_term: str,
+        page_size: int = 50,
+        _headers: dict = None,
+    ) -> dict:
+        """Search for people by name or email in Teamwork.
+        
+        Use this tool to look up user IDs when you need to assign tasks
+        or filter by user. Returns matching people with their IDs.
+        
+        Args:
+            search_term: Name or email to search for (e.g. "Jason", "nic@example.com")
+            page_size: Maximum results to return (default: 50)
+            _headers: Request headers (automatically injected by gateway)
+        
+        Returns:
+            Dictionary containing matching people with id, firstName, lastName, email
+        """
+        client = get_teamwork_client(_headers or {})
+        return client.search_people(
+            search_term=search_term,
+            page_size=page_size,
+        )
     
     
     @mcp.tool()

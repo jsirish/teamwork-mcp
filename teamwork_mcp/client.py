@@ -577,15 +577,47 @@ class TeamworkClient(BaseAPIClient):
     def list_people(
         self,
         project_id: Optional[str] = None,
+        search_term: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Dict[str, Any]:
-        """List people, optionally filtered by project."""
+        """List people, optionally filtered by project or search term.
+
+        Args:
+            project_id: Optional project ID to filter people by
+            search_term: Optional search term to filter by name or email
+            page: Page number for pagination (default: 1)
+            page_size: Number of results per page (default: 50)
+
+        Returns:
+            Dictionary containing people list and pagination metadata
+        """
         params = {"page": page, "pageSize": page_size}
         if project_id:
             params["projectId"] = project_id
-            
+        if search_term:
+            params["searchTerm"] = search_term
+
         return self._request("GET", "/people.json", params=params)
+
+    def search_people(
+        self,
+        search_term: str,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        """Search for people by name or email.
+
+        Convenience wrapper around list_people that requires a search term
+        and returns a simplified response with just the matching people.
+
+        Args:
+            search_term: Name or email to search for
+            page_size: Maximum results to return (default: 50)
+
+        Returns:
+            Dictionary containing matching people list
+        """
+        return self.list_people(search_term=search_term, page_size=page_size)
     
     def get_me(self) -> Dict[str, Any]:
         """Get current authenticated user information."""
